@@ -28,6 +28,7 @@ use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\Files\Storage\IStorage;
 use OCP\HintException;
+use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDateTimeZone;
 use OCP\IGroup;
@@ -72,6 +73,8 @@ class ManagerTest extends \Test\TestCase {
 	protected $logger;
 	/** @var IConfig|MockObject */
 	protected $config;
+	/** @var IAppConfig|MockObject */
+	protected $appConfig;
 	/** @var ISecureRandom|MockObject */
 	protected $secureRandom;
 	/** @var IHasher|MockObject */
@@ -113,6 +116,7 @@ class ManagerTest extends \Test\TestCase {
 	protected function setUp(): void {
 		$this->logger = $this->createMock(LoggerInterface::class);
 		$this->config = $this->createMock(IConfig::class);
+		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->secureRandom = $this->createMock(ISecureRandom::class);
 		$this->hasher = $this->createMock(IHasher::class);
 		$this->mountManager = $this->createMock(IMountManager::class);
@@ -156,6 +160,7 @@ class ManagerTest extends \Test\TestCase {
 		return new Manager(
 			$this->logger,
 			$this->config,
+			$this->appConfig,
 			$this->secureRandom,
 			$this->hasher,
 			$this->mountManager,
@@ -183,6 +188,7 @@ class ManagerTest extends \Test\TestCase {
 			->setConstructorArgs([
 				$this->logger,
 				$this->config,
+				$this->appConfig,
 				$this->secureRandom,
 				$this->hasher,
 				$this->mountManager,
@@ -2470,6 +2476,74 @@ class ManagerTest extends \Test\TestCase {
 			->with('/target');
 
 		$manager->createShare($share);
+	}
+
+	public function testCreateShareBlockedGroups() {
+		/** setup blocked groups list */
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('getValueArray')
+			->with('files_sharing', 'groups_block_list')
+			->willReturn(['blocked-group-1', 'blocked-group-2']);
+		$this->appConfig = $appConfig;
+
+		$shareProvider = $this->createMock(IShareProvider::class);
+		$shareProvider->method('getSharesByPath')->willReturn([]);
+		$this->factory->setProvider($shareProvider);
+
+		$manager = $this->createManagerMock()
+			->setMethods(['allowGroupSharing', 'canShare', 'generalCreateChecks', 'pathCreateChecks'])
+			->getMock();
+
+		$shareOwner = $this->createMock(IUser::class);
+		$shareOwner->method('getUID')->willReturn('shareOwner');
+
+		$storage = $this->createMock(IStorage::class);
+		$path = $this->createMock(File::class);
+		$path->method('getOwner')->willReturn($shareOwner);
+		$path->method('getName')->willReturn('target');
+		$path->method('getStorage')->willReturn($storage);
+
+		/** test create share with 'blocked-group-2': should throw exception */
+		$this->expectException(\InvalidArgumentException::class);
+		$share = $this->createShare(
+			null,
+			IShare::TYPE_GROUP,
+			$path,
+			'blocked-group-1',
+			'sharedBy',
+			null,
+			\OCP\Constants::PERMISSION_ALL);
+
+			$manager->expects($this->any())
+			->method('allowGroupSharing')
+			->willReturn(true);
+		$manager->expects($this->once())
+			->method('canShare')
+			->with($share)
+			->willReturn(true);
+		$manager->expects($this->once())
+			->method('generalCreateChecks')
+			->with($share);
+		;
+		$manager->expects($this->once())
+			->method('pathCreateChecks')
+			->with($path);
+
+		$this->defaultProvider
+			->expects($this->any())
+			->method('create')
+			->with($share)
+			->willReturnArgument(0);
+
+		$share->expects($this->any())
+			->method('setShareOwner')
+			->with('shareOwner');
+		$share->expects($this->any())
+			->method('setTarget')
+			->with('/target');
+
+		$manager->createShare($share);
+
 	}
 
 	public function testCreateShareGroup(): void {

@@ -21,6 +21,7 @@ use OCP\Files\Mount\IShareOwnerlessMount;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\HintException;
+use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDateTimeZone;
 use OCP\IGroupManager;
@@ -62,6 +63,7 @@ class Manager implements IManager {
 	public function __construct(
 		private LoggerInterface $logger,
 		private IConfig $config,
+		private IAppConfig $appConfig,
 		private ISecureRandom $secureRandom,
 		private IHasher $hasher,
 		private IMountManager $mountManager,
@@ -495,6 +497,12 @@ class Manager implements IManager {
 		// Verify group shares are allowed
 		if (!$this->allowGroupSharing()) {
 			throw new \Exception($this->l->t('Group sharing is now allowed'));
+		}
+
+		// Check if sharing with this group is blocked
+		$groupsBlockList = $this->appConfig->getValueArray('files_sharing', 'groups_block_list', [], true);
+		if(array_search($share->getSharedWith(), $groupsBlockList) !== false) {
+			throw new \InvalidArgumentException('Sharing with group ' . $share->getSharedWith() . ' is not allowed.');
 		}
 
 		// Verify if the user can share with this group
