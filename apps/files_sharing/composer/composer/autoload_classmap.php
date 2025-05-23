@@ -23,6 +23,7 @@ return array(
     'OCA\\Files_Sharing\\BackgroundJob\\FederatedSharesDiscoverJob' => $baseDir . '/../lib/BackgroundJob/FederatedSharesDiscoverJob.php',
     'OCA\\Files_Sharing\\Cache' => $baseDir . '/../lib/Cache.php',
     'OCA\\Files_Sharing\\Capabilities' => $baseDir . '/../lib/Capabilities.php',
+    'OCA\\Files_Sharing\\Collaboration\\Collaborators\\UserPlugin' => $baseDir . '/../lib/Collaboration/Collaborators/UserPlugin.php',
     'OCA\\Files_Sharing\\Collaboration\\ShareRecipientSorter' => $baseDir . '/../lib/Collaboration/ShareRecipientSorter.php',
     'OCA\\Files_Sharing\\Command\\CleanupRemoteStorages' => $baseDir . '/../lib/Command/CleanupRemoteStorages.php',
     'OCA\\Files_Sharing\\Command\\DeleteOrphanShares' => $baseDir . '/../lib/Command/DeleteOrphanShares.php',

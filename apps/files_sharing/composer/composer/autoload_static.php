@@ -38,6 +38,7 @@ class ComposerStaticInitFiles_Sharing
         'OCA\\Files_Sharing\\BackgroundJob\\FederatedSharesDiscoverJob' => __DIR__ . '/..' . '/../lib/BackgroundJob/FederatedSharesDiscoverJob.php',
         'OCA\\Files_Sharing\\Cache' => __DIR__ . '/..' . '/../lib/Cache.php',
         'OCA\\Files_Sharing\\Capabilities' => __DIR__ . '/..' . '/../lib/Capabilities.php',
+        'OCA\\Files_Sharing\\Collaboration\\Collaborators\\UserPlugin' => __DIR__ . '/..' . '/../lib/Collaboration/Collaborators/UserPlugin.php',
         'OCA\\Files_Sharing\\Collaboration\\ShareRecipientSorter' => __DIR__ . '/..' . '/../lib/Collaboration/ShareRecipientSorter.php',
         'OCA\\Files_Sharing\\Command\\CleanupRemoteStorages' => __DIR__ . '/..' . '/../lib/Command/CleanupRemoteStorages.php',
         'OCA\\Files_Sharing\\Command\\DeleteOrphanShares' => __DIR__ . '/..' . '/../lib/Command/DeleteOrphanShares.php',
