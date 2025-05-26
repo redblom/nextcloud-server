@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OCA\Files_Sharing\Controller;
 
 use Generator;
@@ -29,6 +30,8 @@ use OCP\IURLGenerator;
 use OCP\Server;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
+use Psr\Log\LoggerInterface;
+
 use function array_slice;
 use function array_values;
 use function usort;
@@ -37,7 +40,8 @@ use function usort;
  * @psalm-import-type Files_SharingShareesSearchResult from ResponseDefinitions
  * @psalm-import-type Files_SharingShareesRecommendedResult from ResponseDefinitions
  */
-class ShareesAPIController extends OCSController {
+class ShareesAPIController extends OCSController
+{
 
 	/** @var int */
 	protected $offset = 0;
@@ -77,6 +81,7 @@ class ShareesAPIController extends OCSController {
 		protected IURLGenerator $urlGenerator,
 		protected IManager $shareManager,
 		protected ISearch $collaboratorSearch,
+		private LoggerInterface $logger,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -96,7 +101,8 @@ class ShareesAPIController extends OCSController {
 	 * 200: Sharees search result returned
 	 */
 	#[NoAdminRequired]
-	public function search(string $search = '', ?string $itemType = null, int $page = 1, int $perPage = 200, $shareType = null, bool $lookup = false): DataResponse {
+	public function search(string $search = '', ?string $itemType = null, int $page = 1, int $perPage = 200, $shareType = null, bool $lookup = false): DataResponse
+	{
 
 		// only search for string larger than a given threshold
 		$threshold = $this->config->getSystemValueInt('sharing.minSearchStringLength', 0);
@@ -182,6 +188,8 @@ class ShareesAPIController extends OCSController {
 
 		[$result, $hasMoreResults] = $this->collaboratorSearch->search($search, $shareTypes, $this->result['lookupEnabled'], $this->limit, $this->offset);
 
+		$this->filterForAutocomplete($result, $search);
+
 		// extra treatment for 'exact' subarray, with a single merge expected keys might be lost
 		if (isset($result['exact'])) {
 			$result['exact'] = array_merge($this->result['exact'], $result['exact']);
@@ -207,7 +215,8 @@ class ShareesAPIController extends OCSController {
 	 *
 	 * @return Generator<array<string>>
 	 */
-	private function getAllShareesByType(string $user, int $shareType): Generator {
+	private function getAllShareesByType(string $user, int $shareType): Generator
+	{
 		$offset = 0;
 		$pageSize = 50;
 
@@ -227,7 +236,8 @@ class ShareesAPIController extends OCSController {
 		}
 	}
 
-	private function sortShareesByFrequency(array $sharees): array {
+	private function sortShareesByFrequency(array $sharees): array
+	{
 		usort($sharees, function (array $s1, array $s2): int {
 			return $s2['count'] - $s1['count'];
 		});
@@ -242,7 +252,8 @@ class ShareesAPIController extends OCSController {
 		IShare::TYPE_EMAIL => 'emails',
 	];
 
-	private function getAllSharees(string $user, array $shareTypes): ISearchResult {
+	private function getAllSharees(string $user, array $shareTypes): ISearchResult
+	{
 		$result = [];
 		foreach ($shareTypes as $shareType) {
 			$sharees = $this->getAllShareesByType($user, $shareType);
@@ -296,7 +307,8 @@ class ShareesAPIController extends OCSController {
 	 * 200: Recommended sharees returned
 	 */
 	#[NoAdminRequired]
-	public function findRecommended(string $itemType, $shareType = null): DataResponse {
+	public function findRecommended(string $itemType, $shareType = null): DataResponse
+	{
 		$shareTypes = [
 			IShare::TYPE_USER,
 		];
@@ -350,7 +362,8 @@ class ShareesAPIController extends OCSController {
 	 * @param string $itemType
 	 * @return bool
 	 */
-	protected function isRemoteSharingAllowed(string $itemType): bool {
+	protected function isRemoteSharingAllowed(string $itemType): bool
+	{
 		try {
 			// FIXME: static foo makes unit testing unnecessarily difficult
 			$backend = Share::getBackend($itemType);
@@ -360,7 +373,8 @@ class ShareesAPIController extends OCSController {
 		}
 	}
 
-	protected function isRemoteGroupSharingAllowed(string $itemType): bool {
+	protected function isRemoteGroupSharingAllowed(string $itemType): bool
+	{
 		try {
 			// FIXME: static foo makes unit testing unnecessarily difficult
 			$backend = Share::getBackend($itemType);
@@ -378,7 +392,8 @@ class ShareesAPIController extends OCSController {
 	 * @param array $params Parameters for the URL
 	 * @return string
 	 */
-	protected function getPaginationLink(int $page, array $params): string {
+	protected function getPaginationLink(int $page, array $params): string
+	{
 		if ($this->isV2()) {
 			$url = $this->urlGenerator->getAbsoluteURL('/ocs/v2.php/apps/files_sharing/api/v1/sharees') . '?';
 		} else {
@@ -391,7 +406,32 @@ class ShareesAPIController extends OCSController {
 	/**
 	 * @return bool
 	 */
-	protected function isV2(): bool {
+	protected function isV2(): bool
+	{
 		return $this->request->getScriptName() === '/ocs/v2.php';
+	}
+
+	/**
+	 * Filters the result for users that have the exclude_user_from_autocomplete setting set to true
+	 */
+	private function filterForAutocomplete(array &$result, string $search): void
+	{
+		foreach ($result['users'] as $user) {
+			$uid = $user['value']['shareWith'];
+			$filteredArray = [];
+			if (
+				!self::isTrue($this->config->getUserValue($uid, 'files_sharing', 'exclude_user_from_autocomplete', false))
+				|| strtolower($search) === strtolower($uid)
+			) {
+				$filteredArray[] = $user;
+			}
+		}
+		$result['users'] = $filteredArray;
+	}
+
+	private static function isTrue($val, $return_null = false): bool
+	{
+		$boolval = (is_string($val) ? filter_var($val, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : (bool) $val);
+		return ($boolval === null && !$return_null ? false : $boolval);
 	}
 }

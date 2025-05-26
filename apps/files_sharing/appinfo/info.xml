@@ -81,7 +81,6 @@ Turning the feature off removes shared files and folders on the server for all s
 	<collaboration>
 		<plugins>
 			<plugin type="autocomplete-sort">OCA\Files_Sharing\Collaboration\ShareRecipientSorter</plugin>
-			<plugin type="collaborator-search" share-type="SHARE_TYPE_USER">OCA\Files_Sharing\Collaboration\Collaborators\UserPlugin</plugin>
 		</plugins>
 	</collaboration>
 
